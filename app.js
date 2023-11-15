@@ -1,7 +1,11 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
 
 const feedRoutes = require('./routes/feed');
+
+const { mongoPassword: password } = require('./.env');
+const MONGODB_URI = `mongodb+srv://roadtomars2030:${password}@cluster0.6j6n0va.mongodb.net/messages?retryWrites=true&w=majority`;
 
 const app = express();
 
@@ -21,4 +25,10 @@ app.use((req, res, next) => {
 
 app.use('/feed', feedRoutes);
 
-app.listen(8080);
+mongoose
+  .connect(MONGODB_URI)
+  .then((result) => {
+    console.log('DATABASE CONNECTED');
+    app.listen(8080);
+  })
+  .catch((err) => console.log(err));
