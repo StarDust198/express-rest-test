@@ -8,6 +8,7 @@ const router = express.Router();
 // GET /feed/posts
 router.get('/posts', feedController.getPosts);
 
+// POST /feed/posts
 router.post(
   '/posts',
   [
@@ -16,5 +17,7 @@ router.post(
   ],
   feedController.postPost
 );
+
+router.get('/posts/:postId', feedController.getPost);
 
 module.exports = router;

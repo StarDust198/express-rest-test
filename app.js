@@ -1,16 +1,43 @@
+const path = require('path');
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const multer = require('multer');
 
 const feedRoutes = require('./routes/feed');
+
+const fileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'images');
+  },
+  filename: (req, file, cb) => {
+    cb(null, new Date().toISOString() + '-' + file.originalname);
+  },
+});
+
+const fileFilter = (req, file, cb) => {
+  if (
+    file.mimetype === 'image/png' ||
+    file.mimetype === 'image/jpg' ||
+    file.mimetype === 'image/jpeg'
+  ) {
+    cb(null, true);
+  } else {
+    cb(null, false);
+  }
+};
+
+const app = express();
 
 const { mongoPassword: password } = require('./.env');
 const MONGODB_URI = `mongodb+srv://roadtomars2030:${password}@cluster0.6j6n0va.mongodb.net/messages?retryWrites=true&w=majority`;
 
-const app = express();
-
 // app.use(bodyParser.urlencoded()); // x-ww-form-urlencoded
 app.use(bodyParser.json()); //application/json
+app.use(multer({ storage: fileStorage, fileFilter }).single('image'));
+
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 // Handling CORS
 app.use((req, res, next) => {
@@ -24,6 +51,12 @@ app.use((req, res, next) => {
 });
 
 app.use('/feed', feedRoutes);
+
+app.use((error, req, res, next) => {
+  console.log(error);
+  const { statusCode = 500, message } = error;
+  res.status(statusCode).json({ message });
+});
 
 mongoose
   .connect(MONGODB_URI)
