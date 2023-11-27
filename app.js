@@ -1,14 +1,13 @@
 const path = require('path');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
 
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const multer = require('multer');
+const { graphqlHTTP } = require('express-graphql');
 
-const feedRoutes = require('./routes/feed');
-const authRoutes = require('./routes/auth');
+const graphqlSchema = require('./graphql/schema');
+const graphqlResolver = require('./graphql/resolvers');
 
 const fileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -53,8 +52,27 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/feed', feedRoutes);
-app.use('/auth', authRoutes);
+app.use(
+  '/graphql',
+  graphqlHTTP({
+    schema: graphqlSchema,
+    rootValue: graphqlResolver,
+    graphiql: true, // needed for /graphql interface to work
+
+    // handling errors in graphQl
+    formatError(err) {
+      if (!err.originalError) {
+        return err;
+      }
+
+      const data = err.originalError.data;
+      const message = err.message || 'An error occured';
+      const code = err.originalError.code || 500;
+
+      return { message, status: code, data };
+    },
+  })
+);
 
 app.use((error, req, res, next) => {
   console.log(error);
@@ -67,17 +85,6 @@ mongoose
   .then((result) => {
     console.log('DATABASE CONNECTED');
 
-    // for v 2.0
-    // const server = app.listen(8080);
-    // const io = require('socket.io')(server);
-
-    const server = createServer(app);
-    const io = require('./socket').init(server);
-
-    io.on('connection', (socket) => {
-      console.log('Client connected');
-    });
-
-    server.listen(8080);
+    app.listen(8080);
   })
   .catch((err) => console.log(err));
