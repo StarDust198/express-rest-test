@@ -83,12 +83,13 @@ module.exports = {
       throw error;
     }
 
-    const { title, imageUrl, content } = postInput;
+    const { title, content, imageUrl } = postInput;
     const errors = [];
 
     if (validator.isEmpty(title) || !validator.isLength(title, { min: 5 }))
       errors.push({ message: 'Title is too short.' });
-    // if (validator.isEmpty(imageUrl)) errors.push({ message: 'No imageUrl.' });
+    if (validator.isEmpty(imageUrl))
+      errors.push({ message: 'Image required.' });
     if (validator.isEmpty(content) || !validator.isLength(content, { min: 5 }))
       errors.push({ message: 'Post content is too short.' });
 
@@ -123,27 +124,37 @@ module.exports = {
       createdAt: createdPost.createdAt.toISOString(),
       updatedAt: createdPost.updatedAt.toISOString(),
     };
-
-    // const existingUser = await User.findOne({ email });
-    // if (existingUser) {
-    //   const error = new Error('User already exists!');
-    //   throw error;
-    // }
   },
 
-  // getPosts: async function () {
-  // 	const posts = await Post.find();
+  posts: async function ({ page }, req) {
+    if (!req.isAuth) {
+      const error = new Error('Not authenticated!');
+      error.code = 401;
+      throw error;
+    }
 
-  // 	return posts.map(post => {
-  // 		return {
-  // 			_id: post._id.toString(),
-  // 			title: post.title,
-  // 			content: post.content,
-  // 			imageUrl: 'imageUrl',
-  // 			creator: User!
-  // 			createdAt: String!
-  // 			updatedAt: String!
-  // 		}
-  // 	});
-  // },
+    if (!page) {
+      page = 1;
+    }
+    const perPage = 2;
+
+    const totalPosts = await Post.find().countDocuments();
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * perPage)
+      .limit(perPage)
+      .populate('creator');
+
+    return {
+      totalPosts,
+      posts: posts.map((post) => {
+        return {
+          ...post._doc,
+          _id: post._id.toString(),
+          createdAt: post.createdAt.toISOString(),
+          updatedAt: post.updatedAt.toISOString(),
+        };
+      }),
+    };
+  },
 };
