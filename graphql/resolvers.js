@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const Post = require('../models/post');
 
+const { clearImage } = require('../util/file');
 const { JWT_SECRET } = require('../consts');
 
 module.exports = {
@@ -156,5 +157,111 @@ module.exports = {
         };
       }),
     };
+  },
+
+  getPost: async function ({ postId }, req) {
+    if (!req.isAuth) {
+      const error = new Error('Not authenticated!');
+      error.code = 401;
+      throw error;
+    }
+
+    const post = await Post.findById(postId).populate('creator');
+    if (!post) {
+      const error = new Error('Post not found!');
+      error.code = 404;
+      throw error;
+    }
+
+    return {
+      ...post._doc,
+      _id: post._id.toString(),
+      createdAt: post.createdAt.toISOString(),
+      updatedAt: post.updatedAt.toISOString(),
+    };
+  },
+
+  editPost: async function ({ postId, postInput }, req) {
+    if (!req.isAuth) {
+      const error = new Error('Not authenticated!');
+      error.code = 401;
+      throw error;
+    }
+
+    const { title, content, imageUrl } = postInput;
+
+    const errors = [];
+    if (validator.isEmpty(title) || !validator.isLength(title, { min: 5 }))
+      errors.push({ message: 'Title is too short.' });
+    if (validator.isEmpty(imageUrl))
+      errors.push({ message: 'Image required.' });
+    if (validator.isEmpty(content) || !validator.isLength(content, { min: 5 }))
+      errors.push({ message: 'Post content is too short.' });
+
+    if (errors.length > 0) {
+      const error = new Error('Invalid input');
+      error.data = errors;
+      error.code = 422;
+      throw error;
+    }
+
+    const post = await Post.findById(postId).populate('creator');
+
+    if (!post) {
+      const error = new Error('Post not found');
+      error.code = 404;
+      throw error;
+    }
+
+    if (post.creator._id.toString() !== req.userId.toString()) {
+      const error = new Error('Editing forbidden');
+      error.code = 403;
+      throw error;
+    }
+
+    post.title = title;
+    post.content = content;
+    if (imageUrl !== 'undefined') {
+      post.imageUrl = imageUrl;
+    }
+
+    const updatedPost = await post.save();
+
+    return {
+      ...updatedPost._doc,
+      _id: updatedPost._id.toString(),
+      createdAt: updatedPost.createdAt.toISOString(),
+      updatedAt: updatedPost.updatedAt.toISOString(),
+    };
+  },
+
+  deletePost: async function ({ postId }, req) {
+    if (!req.isAuth) {
+      const error = new Error('Not authenticated!');
+      error.code = 401;
+      throw error;
+    }
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      const error = new Error('Post not found');
+      error.code = 404;
+      throw error;
+    }
+
+    if (post.creator.toString() !== req.userId.toString()) {
+      const error = new Error('Deleting forbidden');
+      error.code = 403;
+      throw error;
+    }
+
+    clearImage(post.imageUrl);
+    await post.deleteOne();
+    const user = await User.findById(req.userId);
+    user.posts.pull(postId);
+    await user.save();
+
+    return true;
   },
 };

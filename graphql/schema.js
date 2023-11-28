@@ -30,6 +30,10 @@ module.exports = buildSchema(`
 		totalPosts: Int!
 	}
 
+	type DeletePostData {
+		deleted: Boolean! 
+	}
+
 	input UserInputData {
 		email: String!
 		name: String!
@@ -45,11 +49,14 @@ module.exports = buildSchema(`
 	type RootQuery {
 		login(email: String!, password: String!): AuthData!
 		posts(page: Int): PostsData!
+		getPost(postId: ID!): Post!
 	}
 
 	type RootMutation {
 		createUser(userInput: UserInputData): User!
 		createPost(postInput: PostInputData): Post!
+		editPost(postId: ID!, postInput: PostInputData): Post!
+		deletePost(postId: ID!): Boolean!
 	}
 
 	schema {
